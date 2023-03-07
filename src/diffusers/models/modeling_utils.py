@@ -98,9 +98,13 @@ def load_state_dict(checkpoint_file: Union[str, os.PathLike], variant: Optional[
     """
     try:
         if os.path.basename(checkpoint_file) == _add_variant(WEIGHTS_NAME, variant):
-            return torch.load(checkpoint_file, map_location="cpu")
+            x = torch.load(checkpoint_file, map_location="cpu")
+            print("legacy load", checkpoint_file)
+            return x
         else:
-            return safetensors.torch.load_file(checkpoint_file, device="cpu")
+            device = "cuda"
+            print(f"safetensor load straight to {device}: {checkpoint_file}")
+            return safetensors.torch.load_file(checkpoint_file, device=device)
     except Exception as e:
         try:
             with open(checkpoint_file) as f:
