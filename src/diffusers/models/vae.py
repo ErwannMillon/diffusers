@@ -46,6 +46,7 @@ class Encoder(nn.Module):
         norm_num_groups=32,
         act_fn="silu",
         double_z=True,
+        input_shape=(32, 32),
     ):
         super().__init__()
         self.layers_per_block = layers_per_block
@@ -60,7 +61,8 @@ class Encoder(nn.Module):
 
         self.mid_block = None
         self.down_blocks = nn.ModuleList([])
-
+        shape = input_shape
+        print("init shape ", shape)
         # down
         output_channel = block_out_channels[0]
         for i, down_block_type in enumerate(down_block_types):
@@ -81,6 +83,11 @@ class Encoder(nn.Module):
                 attn_num_head_channels=None,
                 temb_channels=None,
             )
+
+            if not is_final_block:
+                shape = tuple([int(s / 2) for s in shape])
+            print("output shape", shape)
+
             self.down_blocks.append(down_block)
 
         # mid
@@ -119,17 +126,21 @@ class Encoder(nn.Module):
             # down
             for down_block in self.down_blocks:
                 sample = torch.utils.checkpoint.checkpoint(create_custom_forward(down_block), sample)
+                print("sample shape", sample.shape)
 
             # middle
             sample = torch.utils.checkpoint.checkpoint(create_custom_forward(self.mid_block), sample)
+            print("sample shape", sample.shape)
 
         else:
             # down
             for down_block in self.down_blocks:
                 sample = down_block(sample)
+                print("sample shape", sample.shape)
 
             # middle
             sample = self.mid_block(sample)
+            print("sample shape", sample.shape)
 
         # post-process
         sample = self.conv_norm_out(sample)

@@ -103,13 +103,14 @@ class Upsample2D(nn.Module):
         out_channels:
     """
 
-    def __init__(self, channels, use_conv=False, use_conv_transpose=False, out_channels=None, name="conv"):
+    def __init__(self, channels, use_conv=False, use_conv_transpose=False, out_channels=None, name="conv", output_shape=None):
         super().__init__()
         self.channels = channels
         self.out_channels = out_channels or channels
         self.use_conv = use_conv
         self.use_conv_transpose = use_conv_transpose
         self.name = name
+        self.output_shape = output_shape
 
         conv = None
         if use_conv_transpose:
@@ -142,10 +143,12 @@ class Upsample2D(nn.Module):
 
         # if `output_size` is passed we force the interpolation output
         # size and do not make use of `scale_factor=2`
-        if output_size is None:
-            hidden_states = F.interpolate(hidden_states, scale_factor=2.0, mode="nearest")
-        else:
-            hidden_states = F.interpolate(hidden_states, size=output_size, mode="nearest")
+        # if output_size is None:
+        #     print("output size is NONE!")
+        #     hidden_states = F.interpolate(hidden_states, scale_factor=2.0, mode="nearest")
+        # else:
+        print("output size is", self.output_shape)
+        hidden_states = F.interpolate(hidden_states, size=self.output_shape, mode="nearest")
 
         # If the input is bfloat16, we cast back to bfloat16
         if dtype == torch.bfloat16:

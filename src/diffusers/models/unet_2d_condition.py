@@ -153,6 +153,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
         conv_out_kernel: int = 3,
         projection_class_embeddings_input_dim: Optional[int] = None,
         class_embeddings_concat: bool = False,
+        mid_shape=(12, 12)
     ):
         super().__init__()
 
@@ -329,7 +330,6 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
 
         # count how many layers upsample the images
         self.num_upsamplers = 0
-
         # up
         reversed_block_out_channels = list(reversed(block_out_channels))
         reversed_attention_head_dim = list(reversed(attention_head_dim))
@@ -337,6 +337,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
         only_cross_attention = list(reversed(only_cross_attention))
 
         output_channel = reversed_block_out_channels[0]
+        output_shape = mid_shape
         for i, up_block_type in enumerate(up_block_types):
             is_final_block = i == len(block_out_channels) - 1
 
@@ -348,9 +349,10 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
             if not is_final_block:
                 add_upsample = True
                 self.num_upsamplers += 1
+                print("calcykated unet ouytput shape iun up", output_shape)
+                output_shape = tuple([x * 2 for x in output_shape])
             else:
                 add_upsample = False
-
             up_block = get_up_block(
                 up_block_type,
                 num_layers=layers_per_block + 1,
@@ -369,6 +371,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
                 only_cross_attention=only_cross_attention[i],
                 upcast_attention=upcast_attention,
                 resnet_time_scale_shift=resnet_time_scale_shift,
+                output_shape=output_shape,
             )
             self.up_blocks.append(up_block)
             prev_output_channel = output_channel
@@ -648,6 +651,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
             sample = sample + mid_block_additional_residual
 
         # 5. up
+        print("real shape before upsample", sample.shape)
         for i, upsample_block in enumerate(self.up_blocks):
             is_final_block = i == len(self.up_blocks) - 1
 
@@ -673,6 +677,7 @@ class UNet2DConditionModel(ModelMixin, ConfigMixin, UNet2DConditionLoadersMixin)
                 sample = upsample_block(
                     hidden_states=sample, temb=emb, res_hidden_states_tuple=res_samples, upsample_size=upsample_size
                 )
+            print("real shape after upsample", sample.shape)
 
         # 6. post-process
         if self.conv_norm_out:
